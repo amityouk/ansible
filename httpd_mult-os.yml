@@ -1,0 +1,30 @@
+---
+  hosts: all
+  gather_facts: false
+  remote_user: ram
+  become: true  
+  become_method: sudo
+
+  vars:
+    project_root: /var/www/html
+  tasks:
+    - name: Install httpd latest package
+      yum: name={{ item }} state=latest
+      when: ansible_os_family == "RedHat"
+
+    - name: install apache on debian or ubuntu instances
+      apt: name=apache2 state=present
+      when: ansible_os_family == "Debian"
+      with_items:
+        - git
+        - pyhon-pip
+    - name location of index file at project reboot
+      copy: src=index.html dest={{ project_root }}/index.html owner=apache group=apache mode=0644
+      
+    - name: Enable appache system reboot
+      service: name=httpd enabled=yes
+
+      notify: restart apache
+  handlers:
+    - name: restart apache
+      service: name=httpd state=restarted 
