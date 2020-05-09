@@ -1,42 +1,47 @@
 # writing  Ansible playbook for LAMP server setup and configurate on centos
 ---
 - hosts: web1
-  gater_fact: true  
-  become: true  
+#  gater_fact: true  
+  become: true 
+  remote_user: root 
   vars:
-  repository: https://github.com/amityouk/ansible.git
+    repository: git@github.com:amityouk/ansible.git
 
   # Database system variables
-   mysqlservice: mysqld
-   mysql_port: 3306
-   dbuser: webapp
-   dbname: ANSAP01
-   upassword: Bond@007
-   masterpassword: MySQL@007 
+    mysqlservice: mysqld
+    mysql_port: 3306
+    dbuser: webapp
+    dbname: ANSAP01
+    upassword: Bond@007
+    masterpassword: MySQL@007 
 
     
   tasks:
   - name: Install httpd and php
-    yum: name={{ item }} state= present
+    yum: name={{ item }} state=present
     with_items:
       - httpd
       - php
-      - mysql-php
+      - php-mysql
 
 
-   - name: Install extra dependany
-     yum: name={{ item }} state=present
-     with_items:
-       - git
+  - name: Install extra dependany
+    yum: name={{ item }} state=present
+    with_items:
+      - git
+  - name: provide permision on /var/www/html
+    file: path=/var/www/html owner=root group=apache mode=0775 state=directory recurse=yes
 
-   - name: copy the code from repository
-     git: repo={{ repository }} dest=/var/www/html/ force=yes
 
-   - name: Create the index.php fie
-     template: src=index.php.j2 dest=/var/www/html/index.php
+  - name: copy the code from repository
+    #git: repo={{ repository }} dest=/var/www/html/ accept_hostkey=yes force=yes 
+    git: repo=ssh://{{ repository }} dest=/var/www/html/ accept_hostkey=yes force=yes 
 
-   - name: Delete index.html if exists
-     file: path=/var/www/html/index.html state=absent
+  - name: Create the index.php fie
+    template: src=index.php.j2 dest=/var/www/html/index.php
+
+  - name: Delete index.html if exists
+    file: path=/var/www/html/index.html state=absent
 
 
 
@@ -81,7 +86,7 @@
     command:  mysql -u root --connect-expired-password --execute="SET PASSWORD = PASSWORD('{{ masterpassword }}');"   
 
   - set_fact:
-    mysql_root_pw: "{{ masterpassword }}"
+      mysql_root_pw: "{{ masterpassword }}"
 
   - name: install .my.cnf with credentials
     template: src=my.cnf.j2 dest=/root/.my.cnf
@@ -96,4 +101,3 @@
 
   - name: Enable the firewall port for MySQL
     firewalld: port={{ mysql_port }}/tcp permanent=true state=enabled immediate=yes
-    
