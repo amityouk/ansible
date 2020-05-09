@@ -1,31 +1,36 @@
----
-  hosts: all
-  gather_facts: true
+
   #must be gather_fact : true then os  when: ansible_os_family == "RedHat" work condition work 
-  remote_user: ram
+---
+- hosts: web1
+  gather_facts: true
   become: true  
-  become_method: sudo
+  #become_method: sudo
 
   vars:
     project_root: /var/www/html
   tasks:
-    - name: Install httpd latest package
+    - name: Install 
       yum: name={{ item }} state=latest
-      when: ansible_os_family == "RedHat"
-
-    - name: install apache on debian or ubuntu instances
-      apt: name=apache2 state=present
-      when: ansible_os_family == "Debian"
       with_items:
+        - httpd
+        - apache2
         - git
         - pyhon-pip
-    - name location of index file at project reboot
+      when: ansible_os_family == "CentOS"
+
+    - name: install apache on debian or ubuntu instances
+      apt: name={{ item }} state=absent
+      apt: name=apache2 state=present
+      when: ansible_os_family == "Debian"
+      
+    - name: location of index file at project reboot
       copy: src=index.html dest={{ project_root }}/index.html owner=apache group=apache mode=0644
       
-    - name: Enable appache system reboot
-      service: name=httpd enabled=yes
+    - name: Enable appache system reboot and start
+      service: name=httpd enabled=yes state=restarted
+      when: ansible_os_family == "CentOS"
 
-      notify: restart apache
-  handlers:
-    - name: restart apache
-      service: name=httpd state=restarted 
+    - name: Enable appache system reboot and start
+      apt: name=apache2 state=restarted
+      when: ansible_os_family == "Debian"
+
