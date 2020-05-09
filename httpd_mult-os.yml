@@ -1,6 +1,7 @@
 ---
   hosts: all
-  gather_facts: false
+  gather_facts: true
+  #must be gather_fact : true then os  when: ansible_os_family == "RedHat" work condition work 
   remote_user: ram
   become: true  
   become_method: sudo
