@@ -1,0 +1,99 @@
+# writing  Ansible playbook for LAMP server setup and configurate on centos
+---
+- hosts: web1
+  gater_fact: true  
+  become: true  
+  vars:
+  repository: https://github.com/amityouk/ansible.git
+
+  # Database system variables
+   mysqlservice: mysqld
+   mysql_port: 3306
+   dbuser: webapp
+   dbname: ANSAP01
+   upassword: Bond@007
+   masterpassword: MySQL@007 
+
+    
+  tasks:
+  - name: Install httpd and php
+    yum: name={{ item }} state= present
+    with_items:
+      - httpd
+      - php
+      - mysql-php
+
+
+   - name: Install extra dependany
+     yum: name={{ item }} state=present
+     with_items:
+       - git
+
+   - name: copy the code from repository
+     git: repo={{ repository }} dest=/var/www/html/ force=yes
+
+   - name: Create the index.php fie
+     template: src=index.php.j2 dest=/var/www/html/index.php
+
+   - name: Delete index.html if exists
+     file: path=/var/www/html/index.html state=absent
+
+
+
+  - name: start and Enable apache server to start on boot
+    service: name=httpd state=started enabled=yes
+
+  - name: Enabled the firewall port for apache
+    firewalld: port=80/tcp parmanent=true state=enabled immediate=yes
+
+#--------------------mysql---------------------------------
+
+  - name: Install MySQL Software Repo
+    yum: 
+      name: http://repo.mysql.com/mysql57-community-release-el7-10.noarch.rpm
+      state: present
+
+  - name: Install database
+    yum: name=mysql-server state=present
+
+  - name: installation  MySQL-python
+    yum: name=MySQL-python state=present
+
+  - name: Start & Enable MySQL Server to start on boot
+    service: name=mysqld state=started enabled=yes   
+
+  - shell: grep 'temporary password' /var/log/mysqld.log | awk '{print $NF}';
+    register: result
+  - set_fact:
+      mysql_root_pw: "{{ result.stdout }}"
+
+  - stat: path=/root/.my.cnf
+    register: sym
+  - set_fact: mysql_root_pw="{{ masterpassword }}"
+    when: sym.stat.exists == True
+
+  - name: install .my.cnf with credentials
+    template: src=my.cnf.j2 dest=/root/.my.cnf
+      mode=0400
+    tags: my_cnf
+
+  - name: Set the root password for MySQL Database
+    command:  mysql -u root --connect-expired-password --execute="SET PASSWORD = PASSWORD('{{ masterpassword }}');"   
+
+  - set_fact:
+    mysql_root_pw: "{{ masterpassword }}"
+
+  - name: install .my.cnf with credentials
+    template: src=my.cnf.j2 dest=/root/.my.cnf
+      mode=0400
+    tags: my_cnf
+
+  - name: Create the database for website
+    mysql_db: name={{ dbname }} state=present
+
+  - name: Create the Application user for the database
+    mysql_user: name={{ dbuser }} password={{ upassword }} priv='*.*:ALL' host='%' state=present
+
+  - name: Enable the firewall port for MySQL
+    firewalld: port={{ mysql_port }}/tcp permanent=true state=enabled immediate=yes
+    
